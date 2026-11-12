@@ -429,22 +429,21 @@ async function getStreams(contentId, mediaType, season, episode) {
       const qualityLabel = movie.quality || "HD";
 
       output.push({
-        name: "NguonC [" + serverLabel + "]",
-        title: [
-          "🎬 " + (movie.name || tmdbInfo.title),
-          "📺 " + episodeLabel + " · " + serverLabel,
-          "💎 " + qualityLabel
-        ].join("\n"),
-        url: resolverUrl,
-        quality: qualityLabel,
-        type: "hls",
-        language: "vi",
-        provider: PROVIDER_ID,
-        headers: {
-          "Referer": movieUrl
-        }
-      });
-    }
+  name: [
+    "NguonC [" + serverLabel + "]",
+    "🎬 " + (movie.name || tmdbInfo.title),
+    "📺 " + episodeLabel,
+    "💎 " + qualityLabel
+  ].join("\n"),
+  url: resolverUrl,
+  quality: qualityLabel,
+  type: "hls",
+  language: "vi",
+  provider: PROVIDER_ID,
+  headers: {
+    "Referer": movieUrl
+  }
+});
 
     return output;
   } catch (error) {
