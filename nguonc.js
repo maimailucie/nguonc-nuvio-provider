@@ -348,11 +348,9 @@ async function getStreams(contentId, mediaType, season, episode) {
   provider: PROVIDER_ID,
   headers: {
     "Referer": movieUrl
-  }
-});
+        }
       });
     }
-
     return output;
   } catch (error) {
     console.log("[NguonC] Provider error:", error && error.message ? error.message : String(error));
