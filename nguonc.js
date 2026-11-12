@@ -337,21 +337,21 @@ async function getStreams(contentId, mediaType, season, episode) {
       const qualityLabel = movie.quality || "HD";
 
       output.push({
-        // Compact source heading, similar to Nuvio's source cards.
-        name: "NguonC [" + serverLabel + "]",
-title: [
-  "🎬 " + (movie.name || tmdbInfo.title),
-  "📺 " + episodeLabel + " · " + serverLabel,
-  "💎 " + qualityLabel
-].join("\n"),
-url: resolverUrl,
-quality: qualityLabel,
-type: "hls",
-language: "vi",
-provider: PROVIDER_ID,
-headers: {
-  "Referer": movieUrl
-}
+  name: "NguonC [" + serverLabel + "]",
+  title: [
+    "🎬 " + (movie.name || tmdbInfo.title),
+    "📺 " + episodeLabel + " · " + serverLabel,
+    "💎 " + qualityLabel
+  ].join("\n"),
+  url: resolverUrl,
+  quality: qualityLabel,
+  type: "hls",
+  language: "vi",
+  provider: PROVIDER_ID,
+  headers: {
+    "Referer": movieUrl
+  }
+});
       });
     }
 
