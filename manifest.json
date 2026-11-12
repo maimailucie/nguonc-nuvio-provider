@@ -12,7 +12,7 @@
         "movie",
         "tv"
       ],
-      "filename": "providers/nguonc.js",
+      "filename": "nguonc.js",
       "enabled": true,
       "formats": [
         "m3u8"
