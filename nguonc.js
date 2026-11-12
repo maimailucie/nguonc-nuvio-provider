@@ -1,5 +1,5 @@
 /*
- * NguonC Provider for Nuvio v1.1.0
+ * NguonC Provider for Nuvio v1.2.0
  * Uses Nuvio-injected TMDB_API_KEY; no key is stored in this repository.
  * Resolves NguonC episode embeds through the public NguonC Resolver endpoint.
  */
