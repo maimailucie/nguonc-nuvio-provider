@@ -430,8 +430,8 @@ async function getStreams(contentId, mediaType, season, episode) {
 
       output.push({
         name: [
-  "🎬 " + (movie.name || tmdbInfo.title),
-    "📺 " + episodeLabel + " · " + serverLabel
+  "🎬  " + (movie.name || tmdbInfo.title),
+    "📺  )" + episodeLabel + " · " + serverLabel
 ].join("\n"),
         url: resolverUrl,
         quality: qualityLabel,
