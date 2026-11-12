@@ -337,12 +337,10 @@ async function getStreams(contentId, mediaType, season, episode) {
       const qualityLabel = movie.quality || "HD";
 
       output.push({
-  name: "NguonC [" + serverLabel + "]",
-  title: [
-    "🎬 " + (movie.name || tmdbInfo.title),
-    "📺 " + episodeLabel + " · " + serverLabel,
-    "💎 " + qualityLabel
-  ].join("\n"),
+  name: [
+  "NguonC · "🎬 " + (movie.name || tmdbInfo.title),
+  "📺 " + episodeLabel + " · " + serverLabel
+].join("\n"),
   url: resolverUrl,
   quality: qualityLabel,
   type: "hls",
