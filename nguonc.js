@@ -1,5 +1,5 @@
 /*
- * NguonC Provider for Nuvio
+ * NguonC Provider for Nuvio v1.1.0
  * Uses Nuvio-injected TMDB_API_KEY; no key is stored in this repository.
  * Resolves NguonC episode embeds through the public NguonC Resolver endpoint.
  */
@@ -8,6 +8,58 @@ const NGUONC_API = "https://phim.nguonc.com/api";
 const RESOLVER = "https://nguonc-resolver.onrender.com";
 const PROVIDER_ID = "nguonc";
 const PROVIDER_NAME = "NguonC";
+
+// Small in-memory TTL cache. It speeds up episode changes while the Nuvio
+// provider runtime stays alive. Nothing is persisted and expiring media URLs
+// are deliberately NOT cached.
+const CACHE = new Map();
+const IN_FLIGHT = new Map();
+const CACHE_LIMIT = 80;
+
+function cacheGet(key) {
+  const entry = CACHE.get(key);
+  if (!entry) return undefined;
+  if (entry.expiresAt <= Date.now()) {
+    CACHE.delete(key);
+    return undefined;
+  }
+  return entry.value;
+}
+
+function cacheSet(key, value, ttlMs) {
+  if (CACHE.size >= CACHE_LIMIT) {
+    const firstKey = CACHE.keys().next().value;
+    if (firstKey !== undefined) CACHE.delete(firstKey);
+  }
+  CACHE.set(key, { value, expiresAt: Date.now() + ttlMs });
+  return value;
+}
+
+async function cached(key, ttlMs, loader) {
+  const hit = cacheGet(key);
+  if (hit !== undefined) return hit;
+  if (IN_FLIGHT.has(key)) return IN_FLIGHT.get(key);
+
+  const task = (async () => {
+    try {
+      const value = await loader();
+      if (value !== undefined && value !== null) cacheSet(key, value, ttlMs);
+      return value;
+    } finally {
+      IN_FLIGHT.delete(key);
+    }
+  })();
+
+  IN_FLIGHT.set(key, task);
+  return task;
+}
+
+const TTL = {
+  tmdb: 6 * 60 * 60 * 1000,
+  search: 15 * 60 * 1000,
+  detail: 15 * 60 * 1000,
+  mapping: 60 * 60 * 1000
+};
 
 function getTmdbKey() {
   try {
@@ -36,13 +88,19 @@ function extractYear(value) {
   return m ? Number(m[0]) : 0;
 }
 
-async function getJson(url, headers) {
-  const response = await fetch(url, {
-    method: "GET",
-    headers: Object.assign({ "Accept": "application/json" }, headers || {})
-  });
-  if (!response.ok) throw new Error("HTTP " + response.status + " for " + url);
-  return response.json();
+async function getJson(url, headers, ttlMs) {
+  const load = async () => {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: Object.assign({ "Accept": "application/json" }, headers || {})
+    });
+    if (!response.ok) throw new Error("HTTP " + response.status + " for " + url);
+    return response.json();
+  };
+
+  // Only cache metadata GETs. Resolver/media URLs are never passed here.
+  if (!ttlMs) return load();
+  return cached("json:" + url, ttlMs, load);
 }
 
 function cleanContentId(contentId) {
@@ -61,7 +119,9 @@ async function getTmdbInfo(contentId, mediaType, apiKey) {
   if (/^tt\d+$/i.test(raw)) {
     const found = await getJson(
       "https://api.themoviedb.org/3/find/" + encodeURIComponent(raw) +
-      "?external_source=imdb_id&api_key=" + encodeURIComponent(apiKey)
+      "?external_source=imdb_id&api_key=" + encodeURIComponent(apiKey),
+      null,
+      TTL.tmdb
     );
     const list = type === "movie" ? (found.movie_results || []) : (found.tv_results || []);
     const first = list[0];
@@ -86,7 +146,9 @@ async function getTmdbInfo(contentId, mediaType, apiKey) {
   try {
     const ext = await getJson(
       "https://api.themoviedb.org/3/" + type + "/" + encodeURIComponent(raw) +
-      "/external_ids?api_key=" + encodeURIComponent(apiKey)
+      "/external_ids?api_key=" + encodeURIComponent(apiKey),
+      null,
+      TTL.tmdb
     );
     imdbId = ext.imdb_id || "";
   } catch (_) {}
@@ -104,7 +166,9 @@ async function getTmdbInfo(contentId, mediaType, apiKey) {
 async function searchNguonC(keyword) {
   if (!keyword) return [];
   const data = await getJson(
-    NGUONC_API + "/films/search?keyword=" + encodeURIComponent(keyword) + "&page=1"
+    NGUONC_API + "/films/search?keyword=" + encodeURIComponent(keyword) + "&page=1",
+    null,
+    TTL.search
   );
   return Array.isArray(data.items) ? data.items : [];
 }
@@ -114,7 +178,11 @@ function candidateSlug(item) {
 }
 
 async function getNguonCDetail(slug) {
-  const data = await getJson(NGUONC_API + "/film/" + encodeURIComponent(slug));
+  const data = await getJson(
+    NGUONC_API + "/film/" + encodeURIComponent(slug),
+    null,
+    TTL.detail
+  );
   return data && data.movie ? data.movie : null;
 }
 
@@ -132,6 +200,9 @@ function scoreTitle(a, b) {
 }
 
 async function findNguonCMovie(tmdbInfo) {
+  const mappingKey = "mapping:" + tmdbInfo.type + ":" + tmdbInfo.id + ":" +
+    (tmdbInfo.imdbId || "");
+  return cached(mappingKey, TTL.mapping, async () => {
   const queries = [];
   [tmdbInfo.originalTitle, tmdbInfo.title].forEach(q => {
     if (q && !queries.includes(q)) queries.push(q);
@@ -198,6 +269,7 @@ async function findNguonCMovie(tmdbInfo) {
 
   // Avoid returning a wrong title from a loose keyword match.
   return bestScore >= 0.82 ? best : null;
+  });
 }
 
 function getEpisodeItems(movie, mediaType, episode) {
@@ -258,13 +330,24 @@ async function getStreams(contentId, mediaType, season, episode) {
         encodeURIComponent(entry.item.embed) +
         "&movie=" + encodeURIComponent(movieUrl);
 
+      const serverLabel = entry.server || "NguonC";
+      const episodeLabel = normalizedType === "tv"
+        ? "Tập " + (episode || 1)
+        : (entry.item.name || "Full");
+      const qualityLabel = movie.quality || "HD";
+
       output.push({
-        name: PROVIDER_NAME + " • " + entry.server,
-        title: (movie.name || tmdbInfo.title) +
-          (normalizedType === "tv" ? " • Tập " + (episode || 1) : "") +
-          " • " + entry.server,
+        // Compact source heading, similar to Nuvio's source cards.
+        name: "NguonC [" + serverLabel + "]",
+        // Multi-line details shown beneath the source heading.
+        title: [
+          "🎬 " + (movie.name || tmdbInfo.title),
+          "📺 " + episodeLabel + " · " + serverLabel,
+          "⚡ Stream via NguonC Resolver",
+          "💎 " + qualityLabel
+        ].join("\\n"),
         url: resolverUrl,
-        quality: movie.quality || "HD",
+        quality: qualityLabel,
         type: "hls",
         language: "vi",
         provider: PROVIDER_ID,
