@@ -338,15 +338,10 @@ async function getStreams(contentId, mediaType, season, episode) {
 
       output.push({
         // Compact source heading, similar to Nuvio's source cards.
-        name: "NguonC · " + (movie.name || tmdbInfo.title) +
-  " · " + episodeLabel + " · " + serverLabel,
-        // Multi-line details shown beneath the source heading.
-        title: [
-          "🎬 " + (movie.name || tmdbInfo.title),
-          "📺 " + episodeLabel + " · " + serverLabel,
-          "⚡ Stream via NguonC Resolver",
-          "💎 " + qualityLabel
-        ].join("\\n"),
+        name: [
+  "NguonC · " + (movie.name || tmdbInfo.title),
+  "📺 " + episodeLabel + " · " + serverLabel
+].join("\n"),
         url: resolverUrl,
         quality: qualityLabel,
         type: "hls",
