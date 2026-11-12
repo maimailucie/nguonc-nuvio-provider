@@ -336,21 +336,29 @@ async function getStreams(contentId, mediaType, season, episode) {
         : (entry.item.name || "Full");
       const qualityLabel = movie.quality || "HD";
 
+      
       output.push({
-  name: [
-  "NguonC · "🎬 " + (movie.name || tmdbInfo.title),
-  "📺 " + episodeLabel + " · " + serverLabel
-].join("\n"),
-  url: resolverUrl,
-  quality: qualityLabel,
-  type: "hls",
-  language: "vi",
-  provider: PROVIDER_ID,
-  headers: {
-    "Referer": movieUrl
+        // Tiêu đề nguồn
+        name: "NguonC [" + serverLabel + "]",
+
+        // Thông tin hiển thị bên dưới
+        title: [
+          "🎬 " + (movie.name || tmdbInfo.title),
+          "📺 " + episodeLabel + " · " + serverLabel,
+          "💎 " + qualityLabel
+        ].join("\n"),
+
+        url: resolverUrl,
+        quality: qualityLabel,
+        type: "hls",
+        language: "vi",
+        provider: PROVIDER_ID,
+        headers: {
+          "Referer": movieUrl
         }
       });
     }
+
     return output;
   } catch (error) {
     console.log("[NguonC] Provider error:", error && error.message ? error.message : String(error));
