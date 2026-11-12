@@ -429,9 +429,9 @@ async function getStreams(contentId, mediaType, season, episode) {
       const qualityLabel = movie.quality || "HD";
 
       output.push({
-        name: [
-  "🎬  " + (movie.name || tmdbInfo.title),
-    "📺  )" + episodeLabel + " · " + serverLabel
+        title: [
+  "🍿　" + (movie.name || tmdbInfo.title),
+  "🥤　" + episodeLabel + " · " + serverLabel
 ].join("\n"),
         url: resolverUrl,
         quality: qualityLabel,
